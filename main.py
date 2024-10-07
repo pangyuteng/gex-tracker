@@ -1,3 +1,4 @@
+import traceback
 import json
 import os
 from datetime import timedelta, datetime
@@ -25,27 +26,30 @@ def run(ticker):
     print_gex_surface(spot_price, option_data)
 
 
+MYFOLDER = os.environ.get("MYFOLDER","tmp")
 def scrape_data(ticker):
     """Scrape data from CBOE website"""
     # Check if data is already downloaded
-    if f"{ticker}.json" in os.listdir("data"):
-        f = open(f"data/{ticker}.json")
-        data = pd.DataFrame.from_dict(json.load(f))
+    json_file = os.path.join(MYFOLDER,f"{ticker}.json")
+    if os.path.exists(json_file):
+        with open(json_file,"r") as f:
+            data = pd.DataFrame.from_dict(json.loads(f.read()))
     else:
         # Request data and save it to file
         try:
             data = requests.get(
                 f"https://cdn.cboe.com/api/global/delayed_quotes/options/_{ticker}.json"
             )
-            with open(f"data/{ticker}.json", "w") as f:
-                json.dump(data.json(), f)
+            with open(json_file,"w") as f:
+                f.write(json.dumps(data.json()))
 
         except ValueError:
+            traceback.print_exc()
             data = requests.get(
                 f"https://cdn.cboe.com/api/global/delayed_quotes/options/{ticker}.json"
             )
-            with open(f"data/{ticker}.json", "w") as f:
-                json.dump(data.json(), f)
+            with open(json_file,"w") as f:
+                f.write(json.dumps(data.json()))
         # Convert json to pandas DataFrame
         data = pd.DataFrame.from_dict(data.json())
 
@@ -101,7 +105,8 @@ def compute_gex_by_strike(spot, data):
     plt.ylabel("Gamma Exposure (Bn$ / %)", fontweight="heavy")
     plt.title(f"{ticker} GEX by strike", fontweight="heavy")
     plt.show()
-
+    plt.savefig(os.path.join(MYFOLDER,"gex-by-strike.png"))
+    plt.close
 
 def compute_gex_by_expiration(data):
     """Compute and plot GEX by expiration"""
@@ -126,6 +131,8 @@ def compute_gex_by_expiration(data):
     plt.ylabel("Gamma Exposure (Bn$ / %)", fontweight="heavy")
     plt.title(f"{ticker} GEX by expiration", fontweight="heavy")
     plt.show()
+    plt.savefig(os.path.join(MYFOLDER,"gex-by-expiration.png"))
+    plt.close
 
 
 def print_gex_surface(spot, data):
@@ -157,7 +164,8 @@ def print_gex_surface(spot, data):
     ax.set_xlabel("Strike Price", fontweight="heavy")
     ax.set_zlabel("Gamma (M$ / %)", fontweight="heavy")
     plt.show()
-
+    plt.savefig(os.path.join(MYFOLDER,"gex-surface.png"))
+    plt.close
 
 if __name__ == "__main__":
     ticker = input("Enter desired ticker:").upper()
